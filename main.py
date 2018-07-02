@@ -4,40 +4,45 @@ import torch
 import torchvision
 import torchvision.transforms as transforms
 import torch.optim as optim
-
+import time
+import os
+from data.dataLoader import ChestXrayDataSet
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                        download=True, transform=transform)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=4,
-                                          shuffle=True, num_workers=2)
-
-testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                       download=True, transform=transform)
-testloader = torch.utils.data.DataLoader(testset, batch_size=4,
-                                         shuffle=False, num_workers=2)
-
-classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
 
-net = Net()
-net.to(device)
-
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+DATA_DIR = './ChestX-ray14/images'
+classes = [ 'Atelectasis',  'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass' 'Nodule', 'Pneumonia',
+            'Pneumothorax', 'Consolidation','Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia' ]
 
 
+N_CLASSES = len(classes)
+TRAIN_IMAGE_LIST = './ChestX-ray14/labels/train_list.txt'
+TEST_IMAGE_LIST = './ChestX-ray14/labels/test_list.txt'
 
+
+BATCH_SIZE = 64
+
+
+train_dataset = ChestXrayDataSet(data_dir=DATA_DIR,
+                                    image_list_file=TRAIN_IMAGE_LIST,
+                                    transform=transforms.Compose([
+                                        transforms.Resize(256),
+                                        transforms.TenCrop(224),
+                                        transforms.Lambda
+                                        (lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
+                                        transforms.Lambda
+                                        (lambda crops: torch.stack([normalize(crop) for crop in crops]))
+                                        ]))
 
 
 for epoch in range(2):  # loop over the dataset multiple times
-
     running_loss = 0.0
     for i, data in enumerate(trainloader, 0):
         # get the inputs
