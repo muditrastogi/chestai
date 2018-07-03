@@ -17,6 +17,7 @@ Pleural_Thickening; 14 Hernia)
 [1] Xiaosong Wang, Yifan Peng, Le Lu, Zhiyong Lu, Mohammadhadi Bagheri, Ronald Summers,
 ChestX-ray8: Hospital-scale Chest X-ray Database and Benchmarks on Weakly-Supervised
 Classification and Localization of Common Thorax Diseases, IEEE CVPR, pp. 3462-3471, 2017
+
 [2] Hoo-chang Shin, Kirk Roberts, Le Lu, Dina Demner-Fushman, Jianhua Yao, Ronald M.
 Summers, Learning to Read Chest X-Rays: Recurrent Neural Cascade Model for Automated
 Image Annotation, IEEE CVPR, pp. 2497-2506, 2016
