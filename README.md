@@ -22,6 +22,9 @@ Classification and Localization of Common Thorax Diseases, IEEE CVPR, pp. 3462-3
 Summers, Learning to Read Chest X-Rays: Recurrent Neural Cascade Model for Automated
 Image Annotation, IEEE CVPR, pp. 2497-2506, 2016
 
+[3]: Huang et. al., Gao Huang, Zhuang Liu, Laurens van der Maaten, Kilian Q. Weinberger
+Densely Connected Convolutional Networks https://arxiv.org/abs/1608.06993
+
 # Updates
 
 Coming Soon
