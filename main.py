@@ -6,9 +6,10 @@ import torchvision.transforms as transforms
 import torch.optim as optim
 import time
 import os
-from data.dataLoader import ChestXrayDataSet
+from data.dataloader import ChestXrayDataSet
+from model.model import DenseNet121
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 transform = transforms.Compose(
@@ -23,8 +24,8 @@ classes = [ 'Atelectasis',  'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass' '
 
 
 N_CLASSES = len(classes)
-TRAIN_IMAGE_LIST = './ChestX-ray14/labels/train_list.txt'
-TEST_IMAGE_LIST = './ChestX-ray14/labels/test_list.txt'
+TRAIN_IMAGE_LIST = '/media/mudit/New Volume2/medical/new_labels/train_list.txt'
+TEST_IMAGE_LIST = '/media/mudit/New Volume2/medical/new_labels/test_list.txt'
 
 
 BATCH_SIZE = 64
@@ -41,6 +42,7 @@ train_dataset = ChestXrayDataSet(data_dir=DATA_DIR,
                                         (lambda crops: torch.stack([normalize(crop) for crop in crops]))
                                         ]))
 
+net = DenseNet121(14)
 
 for epoch in range(2):  # loop over the dataset multiple times
     running_loss = 0.0

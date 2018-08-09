@@ -2,14 +2,14 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-
+import torchvision
 import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from math import sqrt
 
-from layers import *
+# from layers import *
 
 class DenseNet(nn.Module):
     """
@@ -37,14 +37,7 @@ class DenseNet(nn.Module):
     ----------
     - [1]: Huang et. al., https://arxiv.org/abs/1608.06993
     """
-    def __init__(self,
-                 num_blocks,
-                 num_layers_total,
-                 growth_rate,
-                 num_classes,
-                 bottleneck,
-                 p,
-                 theta):
+    def __init__(self, num_layers_total, growth_rate, num_blocks, num_classes, bottleneck, p, theta):
         """
         Initialize the DenseNet network. He. et al weight initialization
         is used (scaling by sqrt(2/n) to make variance 2/n).
@@ -141,3 +134,25 @@ class DenseNet(nn.Module):
         out = out.view(-1, self.out_channels)
         out = self.fc(out)
         return out
+
+
+
+
+
+class DenseNet121(nn.Module):
+    """Model modified.
+    The architecture of our model is the same as standard DenseNet121
+    except the classifier layer which has an additional sigmoid function.
+    """
+    def __init__(self, out_size):
+        super(DenseNet121, self).__init__()
+        self.densenet121 = torchvision.models.densenet121(pretrained=True)
+        num_ftrs = self.densenet121.classifier.in_features
+        self.densenet121.classifier = nn.Sequential(
+            nn.Linear(num_ftrs, out_size),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        x = self.densenet121(x)
+        return x
