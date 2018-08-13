@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
-
+from PIL import Image
 # Ignore warnings
 import warnings
 warnings.filterwarnings("ignore")
@@ -48,9 +48,13 @@ class ChestXrayDataSet(Dataset):
         """
         image_name = self.image_names[index]
         image = Image.open(image_name).convert('RGB')
+        print type(image)
         label = self.labels[index]
         if self.transform is not None:
             image = self.transform(image)
+        image = np.array(image)
+        image = transforms.ToTensor()(image)
+
         return image, torch.FloatTensor(label)
 
     def __len__(self):

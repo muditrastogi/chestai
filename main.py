@@ -8,6 +8,7 @@ import time
 import os
 from data.dataloader import ChestXrayDataSet
 from model.model import DenseNet121
+import torch.nn as nn
 
 # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -18,7 +19,7 @@ transform = transforms.Compose(
 
 
 
-DATA_DIR = './ChestX-ray14/images'
+DATA_DIR = '/media/mudit/New Volume2/medical/train/'
 classes = [ 'Atelectasis',  'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass' 'Nodule', 'Pneumonia',
             'Pneumothorax', 'Consolidation','Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia' ]
 
@@ -31,25 +32,38 @@ TEST_IMAGE_LIST = '/media/mudit/New Volume2/medical/new_labels/test_list.txt'
 BATCH_SIZE = 64
 
 
-train_dataset = ChestXrayDataSet(data_dir=DATA_DIR,
-                                    image_list_file=TRAIN_IMAGE_LIST,
-                                    transform=transforms.Compose([
-                                        transforms.Resize(256),
-                                        transforms.TenCrop(224),
-                                        transforms.Lambda
-                                        (lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
-                                        transforms.Lambda
-                                        (lambda crops: torch.stack([normalize(crop) for crop in crops]))
-                                        ]))
+trainloader = ChestXrayDataSet(data_dir=DATA_DIR,
+                                    image_list_file=TRAIN_IMAGE_LIST
+                                    )
+                                    # transform=transforms.Compose([
+                                    #     transforms.Resize(256),
+                                    #     transforms.TenCrop(224),
+                                    #     # transforms.Lambda
+                                    #     # (lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
+                                    #     # transforms.Lambda
+                                    #     # (lambda crops: torch.stack([normalize(crop) for crop in crops]))
+                                    #     #
+                                    #     ]))
 
 net = DenseNet121(14)
+lr = 0.1
+optimizer = optim.SGD(net.parameters(),
+                      lr=lr,
+                      momentum=0.9,
+                      weight_decay=0.0005)
+
+criterion = nn.BCELoss()
+
 
 for epoch in range(2):  # loop over the dataset multiple times
     running_loss = 0.0
     for i, data in enumerate(trainloader, 0):
         # get the inputs
+        print data
         inputs, labels = data
 
+        print inputs, labels
+        inputs,labels = inputs.unsqueeze(0), labels.unsqueeze(0)
         # zero the parameter gradients
         optimizer.zero_grad()
 
