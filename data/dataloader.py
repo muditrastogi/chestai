@@ -48,7 +48,6 @@ class ChestXrayDataSet(Dataset):
         """
         image_name = self.image_names[index]
         image = Image.open(image_name).convert('RGB')
-        print type(image)
         label = self.labels[index]
         if self.transform is not None:
             image = self.transform(image)

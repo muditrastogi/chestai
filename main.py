@@ -7,7 +7,7 @@ import torch.optim as optim
 import time
 import os
 from data.dataloader import ChestXrayDataSet
-from model.model import DenseNet121
+from model.model import DenseNet
 import torch.nn as nn
 
 # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -15,21 +15,22 @@ import torch.nn as nn
 
 transform = transforms.Compose(
     [transforms.ToTensor(),
+    transforms.Resize(224),
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
 
 
-DATA_DIR = '/media/mudit/New Volume2/medical/train/'
+DATA_DIR = '/home/mudit/project/chestai/chest_traindata/train/'
 classes = [ 'Atelectasis',  'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass' 'Nodule', 'Pneumonia',
             'Pneumothorax', 'Consolidation','Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia' ]
 
 
 N_CLASSES = len(classes)
-TRAIN_IMAGE_LIST = '/media/mudit/New Volume2/medical/new_labels/train_list.txt'
-TEST_IMAGE_LIST = '/media/mudit/New Volume2/medical/new_labels/test_list.txt'
+TRAIN_IMAGE_LIST = '/home/mudit/project/chestai/chest_traindata/new_labels/train_list.txt'
+TEST_IMAGE_LIST = '/home/mudit/project/chestai/chest_traindata/new_labels/test_list.txt'
 
 
-BATCH_SIZE = 64
+BATCH_SIZE = 1
 
 
 trainloader = ChestXrayDataSet(data_dir=DATA_DIR,
@@ -45,7 +46,7 @@ trainloader = ChestXrayDataSet(data_dir=DATA_DIR,
                                     #     #
                                     #     ]))
 
-net = DenseNet121(14)
+net = DenseNet(growthRate=12, depth=10, reduction=0.5, bottleneck=True, nClasses=14)
 lr = 0.1
 optimizer = optim.SGD(net.parameters(),
                       lr=lr,
@@ -59,10 +60,8 @@ for epoch in range(2):  # loop over the dataset multiple times
     running_loss = 0.0
     for i, data in enumerate(trainloader, 0):
         # get the inputs
-        print data
         inputs, labels = data
 
-        print inputs, labels
         inputs,labels = inputs.unsqueeze(0), labels.unsqueeze(0)
         # zero the parameter gradients
         optimizer.zero_grad()

@@ -1,158 +1,117 @@
-# Author: Mudit Rastogi
-import torch.nn as nn
-import torch.nn.functional as F
-
-import torchvision
 import torch
-from torch import nn
+
+import torch.nn as nn
+import torch.optim as optim
+
 import torch.nn.functional as F
 from torch.autograd import Variable
-from math import sqrt
 
-# from layers import *
+import torchvision.datasets as dset
+import torchvision.transforms as transforms
+from torch.utils.data import DataLoader
 
-class DenseNet(nn.Module):
-    """
-    Densely Connected Convolutional Neural Network [1].
-    Connects each layer to every other layer in a feed-forward
-    fashion. This alleviates the vanishing-gradient problem,
-    strengthens feature propagation, encourages feature reuse, and
-    substantially reduces the number of parameters.
-    Architecture
-    ------------
-    * Initial Convolution Layer
-    * DenseBlock - TransitionLayer (x2)
-    * DenseBlock - Global Avg Pooling
-    * Fully Connected
-    * Softmax
+import torchvision.models as models
 
-    When we say we have a DenseNet of L layers, L is computed as
-    follows:
-    - There are 3 Dense blocks, each with n layers.
-    - There is an initial conv layer, and final fully-connected layer.
-    - There are 2 Transition layers, each with 1 layer.
-    Hence, L = 3*n + 2 + 2 = 3*n + 4.
-    This is equivalent to saying (L - 4) must be divisible by 3.
-    References
-    ----------
-    - [1]: Huang et. al., https://arxiv.org/abs/1608.06993
-    """
-    def __init__(self, num_layers_total, growth_rate, num_blocks, num_classes, bottleneck, p, theta):
-        """
-        Initialize the DenseNet network. He. et al weight initialization
-        is used (scaling by sqrt(2/n) to make variance 2/n).
-        Params
-        ------
-        - num_blocks: (int) number of dense blocks in the network. On the CIFAR
-          datasets, this is set to 3 while on ImageNet, it's set to 4.
-        - num_layers_total: (int) total number of layers L in the network. L must
-          follow the following equation: L = 3*n + 4 where n is the number of
-          layers in each dense block.
-        - growth_rate: (int) this is k in the paper. Number of feature maps produced
-          by each convolution in the dense blocks.
-        - num_classes: (int) number of output classes in the dataset.
-        - bottleneck: (bool) specifies if the bottleneck variant of the dense block is
-          to be used.
-        - p: (float) dropout rate. Used on non-augmented versions of the datasets.
-        - theta: (float) compression factor in the range [0, 1]. In the paper, a value
-          of 0.5 is used when bottleneck is used.
-        """
-        super(DenseNet, self).__init__()
+import sys
+import math
 
-        # ensure L relationship talked above
-        error_msg = "[!] Total number of layers must be 3*n + 4..."
-        assert (num_layers_total - 4) % 3 == 0, error_msg
-
-        # compute L, the number of layers in each dense block
-        # if bottleneck, we need to adjust L by a factor of 2
-        num_layers_dense = int((num_layers_total - 4) / 3)
-        if bottleneck:
-            num_layers_dense = int(num_layers_dense / 2)
-
-        # ================================== #
-        # initial convolutional layer
-        out_channels = 16
-        if bottleneck:
-            out_channels = 2 * growth_rate
-        self.conv = nn.Conv2d(3,
-                              out_channels,
-                              kernel_size=3,
-                              padding=1)
-        # ================================== #
-
-        # ================================== #
-        # dense blocks and transition layers
-        blocks = []
-        for i in range(num_blocks - 1):
-            # dense block
-            dblock = DenseBlock(num_layers_dense,
-                                out_channels,
-                                growth_rate,
-                                bottleneck,
-                                p)
-            blocks.append(dblock)
-
-            # transition block
-            out_channels = dblock.out_channels
-            trans = TransitionLayer(out_channels, theta, p)
-            blocks.append(trans)
-            out_channels = trans.out_channels
-        # ================================== #
-
-        # ================================== #
-        # last dense block does not have transition layer
-        dblock = DenseBlock(num_layers_dense,
-                            out_channels,
-                            growth_rate,
-                            bottleneck,
-                            p)
-        blocks.append(dblock)
-        self.block = nn.Sequential(*blocks)
-        self.out_channels = dblock.out_channels
-        # ================================== #
-
-        # ================================== #
-        # fully-connected layer
-        self.fc = nn.Linear(self.out_channels, num_classes)
-        # ================================== #
-
-        # ================================== #
-        # He et. al weight initialization
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, sqrt(2. / n))
-        # ================================== #
+class Bottleneck(nn.Module):
+    def __init__(self, nChannels, growthRate):
+        super(Bottleneck, self).__init__()
+        interChannels = 4*growthRate
+        self.bn1 = nn.BatchNorm2d(nChannels)
+        self.conv1 = nn.Conv2d(nChannels, interChannels, kernel_size=1,
+                               bias=False)
+        self.bn2 = nn.BatchNorm2d(interChannels)
+        self.conv2 = nn.Conv2d(interChannels, growthRate, kernel_size=3,
+                               padding=1, bias=False)
 
     def forward(self, x):
-        """
-        Run the forward pass of the DenseNet model.
-        """
-        out = self.conv(x)
-        out = self.block(out)
-        out = F.avg_pool2d(out, 8)
-        out = out.view(-1, self.out_channels)
-        out = self.fc(out)
+        out = self.conv1(F.relu(self.bn1(x)))
+        out = self.conv2(F.relu(self.bn2(out)))
+        out = torch.cat((x, out), 1)
+        return out
+
+class SingleLayer(nn.Module):
+    def __init__(self, nChannels, growthRate):
+        super(SingleLayer, self).__init__()
+        self.bn1 = nn.BatchNorm2d(nChannels)
+        self.conv1 = nn.Conv2d(nChannels, growthRate, kernel_size=3,
+                               padding=1, bias=False)
+
+    def forward(self, x):
+        out = self.conv1(F.relu(self.bn1(x)))
+        out = torch.cat((x, out), 1)
+        return out
+
+class Transition(nn.Module):
+    def __init__(self, nChannels, nOutChannels):
+        super(Transition, self).__init__()
+        self.bn1 = nn.BatchNorm2d(nChannels)
+        self.conv1 = nn.Conv2d(nChannels, nOutChannels, kernel_size=1,
+                               bias=False)
+
+    def forward(self, x):
+        out = self.conv1(F.relu(self.bn1(x)))
+        out = F.avg_pool2d(out, 2)
         return out
 
 
+class DenseNet(nn.Module):
+    def __init__(self, growthRate, depth, reduction, nClasses, bottleneck):
+        super(DenseNet, self).__init__()
 
+        nDenseBlocks = (depth-4) // 3
+        if bottleneck:
+            nDenseBlocks //= 2
 
+        nChannels = 2*growthRate
+        self.conv1 = nn.Conv2d(3, nChannels, kernel_size=3, padding=1,
+                               bias=False)
+        self.dense1 = self._make_dense(nChannels, growthRate, nDenseBlocks, bottleneck)
+        nChannels += nDenseBlocks*growthRate
+        nOutChannels = int(math.floor(nChannels*reduction))
+        self.trans1 = Transition(nChannels, nOutChannels)
 
-class DenseNet121(nn.Module):
-    """Model modified.
-    The architecture of our model is the same as standard DenseNet121
-    except the classifier layer which has an additional sigmoid function.
-    """
-    def __init__(self, out_size):
-        super(DenseNet121, self).__init__()
-        self.densenet121 = torchvision.models.densenet121(pretrained=True)
-        num_ftrs = self.densenet121.classifier.in_features
-        self.densenet121.classifier = nn.Sequential(
-            nn.Linear(num_ftrs, out_size),
-            nn.Sigmoid()
-        )
+        nChannels = nOutChannels
+        self.dense2 = self._make_dense(nChannels, growthRate, nDenseBlocks, bottleneck)
+        nChannels += nDenseBlocks*growthRate
+        nOutChannels = int(math.floor(nChannels*reduction))
+        self.trans2 = Transition(nChannels, nOutChannels)
+
+        nChannels = nOutChannels
+        self.dense3 = self._make_dense(nChannels, growthRate, nDenseBlocks, bottleneck)
+        nChannels += nDenseBlocks*growthRate
+
+        self.bn1 = nn.BatchNorm2d(nChannels)
+        self.fc = nn.Linear(nChannels, nClasses)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                m.bias.data.zero_()
+
+    def _make_dense(self, nChannels, growthRate, nDenseBlocks, bottleneck):
+        layers = []
+        for i in range(int(nDenseBlocks)):
+            if bottleneck:
+                layers.append(Bottleneck(nChannels, growthRate))
+            else:
+                layers.append(SingleLayer(nChannels, growthRate))
+            nChannels += growthRate
+        return nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self.densenet121(x)
-        return x
+        out = self.conv1(x)
+        out = self.trans1(self.dense1(out))
+        out = self.trans2(self.dense2(out))
+        out = self.dense3(out)
+        # out = torch.squeeze(F.avg_pool2d(F.relu(self.bn1(out)), 8))
+        out = torch.squeeze(F.adaptive_avg_pool2d(F.relu(self.bn1(out)), 8))
+        out = F.log_softmax(self.fc(out))
+        return out
