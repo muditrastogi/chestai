@@ -7,7 +7,7 @@ import torch.optim as optim
 import time
 import os
 from data.dataloader import ChestXrayDataSet
-from model.model import DenseNet
+from model.model import DenseNet, LinkNet34
 import torch.nn as nn
 
 # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -18,7 +18,7 @@ transform = transforms.Compose(
     transforms.Resize(224),
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-
+torch.cuda.set_device(0)
 
 DATA_DIR = '/home/mudit/project/chestai/chest_traindata/train/'
 classes = [ 'Atelectasis',  'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass' 'Nodule', 'Pneumonia',
@@ -30,7 +30,7 @@ TRAIN_IMAGE_LIST = '/home/mudit/project/chestai/chest_traindata/new_labels/train
 TEST_IMAGE_LIST = '/home/mudit/project/chestai/chest_traindata/new_labels/test_list.txt'
 
 
-BATCH_SIZE = 1
+BATCH_SIZE = 20
 
 
 trainloader = ChestXrayDataSet(data_dir=DATA_DIR,
@@ -46,15 +46,18 @@ trainloader = ChestXrayDataSet(data_dir=DATA_DIR,
                                     #     #
                                     #     ]))
 
-net = DenseNet(growthRate=12, depth=10, reduction=0.5, bottleneck=True, nClasses=14)
+# net = DenseNet(growthRate=12, depth=10, reduction=0.5, bottleneck=True, nClasses=14)
+net = LinkNet34(num_classes=14)
+
 lr = 0.1
 optimizer = optim.SGD(net.parameters(),
                       lr=lr,
                       momentum=0.9,
                       weight_decay=0.0005)
 
-criterion = nn.BCELoss()
-
+criterion = nn.MSELoss()
+net.cuda()
+gpu = True
 
 for epoch in range(2):  # loop over the dataset multiple times
     running_loss = 0.0
@@ -65,14 +68,19 @@ for epoch in range(2):  # loop over the dataset multiple times
         inputs,labels = inputs.unsqueeze(0), labels.unsqueeze(0)
         # zero the parameter gradients
         optimizer.zero_grad()
+        if gpu:
+            inputs = inputs.cuda()
+            labels = labels.cuda()
 
         # forward + backward + optimize
         outputs = net(inputs)
+        print (outputs.shape, labels.shape)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
 
         # print statistics
+        print (i)
         running_loss += loss.item()
         if i % 2000 == 1999:    # print every 2000 mini-batches
             print('[%d, %5d] loss: %.3f' %
