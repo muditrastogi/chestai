@@ -7,7 +7,7 @@ import torch.optim as optim
 import time
 import os
 from data.dataloader import ChestXrayDataSet
-from model.model import DenseNet, LinkNet34
+from model.model import DenseNet, LinkNet34, Net
 import torch.nn as nn
 
 # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -47,8 +47,8 @@ trainloader = ChestXrayDataSet(data_dir=DATA_DIR,
                                     #     ]))
 
 # net = DenseNet(growthRate=12, depth=10, reduction=0.5, bottleneck=True, nClasses=14)
-net = LinkNet34(num_classes=14)
-
+# net = LinkNet34(num_classes=14)
+net = Net(14)
 lr = 0.1
 optimizer = optim.SGD(net.parameters(),
                       lr=lr,
